@@ -153,7 +153,7 @@ get_result <- function(dat, curves, weightages) {
                                 0,
                                 p_ytd_sales),
            status = ifelse(is.na(status),
-                           "未开放",
+                           "未开发",
                            status)) %>% 
     select(`city_id`, `city`, `hospital_id`, `hospital`, `hospital_level`, `representative_id`, 
            `representative`, `product_id`, `product`, `product_area`, `potential`, `patient`, 
@@ -162,7 +162,7 @@ get_result <- function(dat, curves, weightages) {
   market <- list()
   for (i in unique(cal_data$product)) {
     market[[i]] <- cal_data[which(cal_data$product == i), ] %>% 
-      mutate(budget_prop = budget / sum(budget, na.rm = TRUE))
+      mutate(budget_prop = budget / sum(budget, na.rm = TRUE) * 100)
   }
   
   result <- data.frame()
@@ -170,28 +170,37 @@ get_result <- function(dat, curves, weightages) {
   for (i in names(market)) {
     
     data01 <- market[[i]] %>% 
-      filter(status == "已开放") %>% 
+      filter(status == "已开发") %>% 
       arrange(-`potential`) %>% 
       mutate(level = row_number())
     
     if (nrow(data01) > 0) {
       data01 <- data01 %>% 
-        mutate(oa_base1 = ifelse(i == "开拓来" | i == "威芃可",
-                                 ifelse(level <= 7,
-                                        sapply(budget_prop, function(x) {curve_func("curve02", curves, x)}),
-                                        ifelse(level > 7 & level <= 23,
-                                               sapply(budget_prop, function(x) {curve_func("curve03", curves, x)}),
-                                               ifelse(level > 23,
-                                                      sapply(budget_prop, function(x) {curve_func("curve04", curves, x)}),
-                                                      0))),
-                                 ifelse(i == "优派西",
-                                        ifelse(level <= 4,
-                                               sapply(budget_prop, function(x) {curve_func("curve02", curves, x)}),
-                                               ifelse(level > 4 & level <= 18,
-                                                      sapply(budget_prop, function(x) {curve_func("curve03", curves, x)}),
-                                                      ifelse(level > 18,
-                                                             sapply(budget_prop, function(x) {curve_func("curve04", curves, x)}),
-                                                             0)))))) %>% 
+        mutate(oa_base = ifelse(product == "开拓来",
+                                ifelse(level <= 7,
+                                       sapply(budget_prop, function(x) {curve_func("curve02", curves, x)}),
+                                       ifelse(level > 7 & level <= 23,
+                                              sapply(budget_prop, function(x) {curve_func("curve03", curves, x)}),
+                                              ifelse(level > 23,
+                                                     sapply(budget_prop, function(x) {curve_func("curve04", curves, x)}),
+                                                     0))),
+                                ifelse(product == "威芃可",
+                                       ifelse(level <= 7,
+                                              sapply(budget_prop, function(x) {curve_func("curve05", curves, x)}),
+                                              ifelse(level > 7 & level <= 23,
+                                                     sapply(budget_prop, function(x) {curve_func("curve06", curves, x)}),
+                                                     ifelse(level > 23,
+                                                            sapply(budget_prop, function(x) {curve_func("curve07", curves, x)}),
+                                                            0))),
+                                       ifelse(product == "优派西",
+                                              ifelse(level <= 4,
+                                                     sapply(budget_prop, function(x) {curve_func("curve02", curves, x)}),
+                                                     ifelse(level > 4 & level <= 18,
+                                                            sapply(budget_prop, function(x) {curve_func("curve03", curves, x)}),
+                                                            ifelse(level > 18,
+                                                                   sapply(budget_prop, function(x) {curve_func("curve04", curves, x)}),
+                                                                   0))),
+                                              0)))) %>% 
         mutate(hospital_quota_potential_factor = 1 - wilcox.test(.$quota, .$potential)$p.value,
                hospital_quota_potential_factor = ifelse(hospital_quota_potential_factor < 0,
                                                         0,
@@ -201,9 +210,9 @@ get_result <- function(dat, curves, weightages) {
                                                     0,
                                                     hospital_quota_sales_factor),
                hospital_product_quota_growth_factor = 1 / (abs((quota - p_sales) / (potential - p_sales) - 
-                                                                 (sum(.$quota, na.rm = TRUE) - sum(.$p_sales, na.rm = TRUE)) / 
-                                                                 (sum(.$potential, na.rm = TRUE) - sum(.$p_sales, na.rm = TRUE))) + 1)) %>% 
-        mutate(factor1 = 
+                                                                 (sum(quota, na.rm = TRUE) - sum(p_sales, na.rm = TRUE)) / 
+                                                                 (sum(potential, na.rm = TRUE) - sum(p_sales, na.rm = TRUE))) + 1),
+               factor1 = 
                  hospital_quota_potential_factor * weightages[["weightage01"]]$hospital_quota_potential_factor * weightages[["weightage02"]]$factor1 + 
                  hospital_quota_sales_factor * weightages[["weightage01"]]$hospital_quota_sales_factor * weightages[["weightage02"]]$factor1 + 
                  hospital_product_quota_growth_factor * weightages[["weightage02"]]$hospital_product_quota_growth_factor) %>% 
@@ -215,14 +224,17 @@ get_result <- function(dat, curves, weightages) {
                                               0),
                hospital_num_dist = n()) %>% 
         ungroup() %>% 
-        mutate(district_potential_factor = 1 / (abs(potential_dist - sum(market[[i]]$potential, na.rm = TRUE)/6) + 1),
-               district_sales_factor = 1 / (abs(sales_dist - sum(market[[i]]$potential, na.rm = TRUE)/6) + 1),
-               district_hospital_factor = 1 / (abs(hospital_num_dist - 5) + 1)) %>% 
-        mutate(factor2 = district_potential_factor * weightages[["weightage03"]]$district_potential_factor * weightages[["weightage04"]]$factor2 + 
+        mutate(district_potential_factor = sum(market[[i]]$potential, na.rm = TRUE)/6 / (abs(potential_dist - sum(market[[i]]$potential, na.rm = TRUE)/6) 
+                                                                                         + sum(market[[i]]$potential, na.rm = TRUE)/6),
+               district_sales_factor = sum(market[[i]]$p_sales, na.rm = TRUE)/6 / (abs(sales_dist - sum(market[[i]]$p_sales, na.rm = TRUE)/6) 
+                                                                                   + sum(market[[i]]$p_sales, na.rm = TRUE)/6),
+               district_hospital_factor = 1 / (abs(hospital_num_dist - 5) + 1),
+               factor2 = district_potential_factor * weightages[["weightage03"]]$district_potential_factor * weightages[["weightage04"]]$factor2 + 
                  district_sales_factor * weightages[["weightage03"]]$district_sales_factor * weightages[["weightage04"]]$factor2 + 
                  district_cross_factor * weightages[["weightage04"]]$district_cross_factor + 
                  district_hospital_factor * weightages[["weightage04"]]$district_hospital_factor) %>% 
-        mutate(current_offer_attractiveness = oa_base1 * factor1 * factor2,
+        mutate(factor = factor1 * weightages[["weightage09"]]$factor1 + factor2 * weightages[["weightage09"]]$factor2,
+               current_offer_attractiveness = oa_base * factor,
                p_offer_attractiveness = sapply(p_sales / potential * 100, function(x) {curve_func("curve08", curves, x)}),
                offer_attractiveness = current_offer_attractiveness * weightages[["weightage05"]]$current_offer_attractiveness + 
                  p_offer_attractiveness * weightages[["weightage05"]]$previous_offer_attractiveness,
@@ -235,34 +247,35 @@ get_result <- function(dat, curves, weightages) {
     } 
     
     data02 <- market[[i]] %>%
-      filter(status == "即将开放") %>% 
+      filter(status == "正在开发") %>% 
       arrange(-`potential`) %>% 
       mutate(level = row_number())
     
     if (nrow(data02) > 0) {
       data02 <- data02 %>% 
-        mutate(oa_base1 = ifelse(i == "开拓来" | i == "威芃可",
-                                 ifelse(level <= 7,
-                                        sapply(budget_prop, function(x) {curve_func("curve05", curves, x)}),
-                                        ifelse(level > 7 & level <= 23,
-                                               sapply(budget_prop, function(x) {curve_func("curve06", curves, x)}),
-                                               ifelse(level > 23,
-                                                      sapply(budget_prop, function(x) {curve_func("curve07", curves, x)}),
-                                                      0))),
-                                 ifelse(i == "优派西",
-                                        ifelse(level <= 4,
-                                               sapply(budget_prop, function(x) {curve_func("curve05", curves, x)}),
-                                               ifelse(level > 4 & level <= 18,
-                                                      sapply(budget_prop, function(x) {curve_func("curve06", curves, x)}),
-                                                      ifelse(level > 18,
-                                                             sapply(budget_prop, function(x) {curve_func("curve07", curves, x)}),
-                                                             0)))))) %>% 
+        mutate(oa_base = ifelse(product == "威芃可",
+                                ifelse(level <= 7,
+                                       sapply(budget_prop, function(x) {curve_func("curve05", curves, x)}),
+                                       ifelse(level > 7 & level <= 23,
+                                              sapply(budget_prop, function(x) {curve_func("curve06", curves, x)}),
+                                              ifelse(level > 23,
+                                                     sapply(budget_prop, function(x) {curve_func("curve07", curves, x)}),
+                                                     0))),
+                                ifelse(product == "优派西",
+                                       ifelse(level <= 4,
+                                              sapply(budget_prop, function(x) {curve_func("curve05", curves, x)}),
+                                              ifelse(level > 4 & level <= 18,
+                                                     sapply(budget_prop, function(x) {curve_func("curve06", curves, x)}),
+                                                     ifelse(level > 18,
+                                                            sapply(budget_prop, function(x) {curve_func("curve07", curves, x)}),
+                                                            0))),
+                                       0))) %>% 
         mutate(hospital_quota_potential_factor = 1 - wilcox.test(.$quota, .$potential)$p.value,
                hospital_quota_potential_factor = ifelse(hospital_quota_potential_factor < 0,
                                                         0,
                                                         hospital_quota_potential_factor),
-               hospital_product_quota_growth_factor = 1 / (abs(quota / potential - sum(.$quota, na.rm = TRUE) / sum(.$potential, na.rm = TRUE)) + 1)) %>% 
-        mutate(factor1 = (hospital_quota_potential_factor * weightages[["weightage06"]]$hospital_quota_potential_factor + 
+               hospital_product_quota_growth_factor = 1 / (abs(quota / potential - sum(quota, na.rm = TRUE) / sum(potential, na.rm = TRUE)) + 1),
+               factor1 = (hospital_quota_potential_factor * weightages[["weightage06"]]$hospital_quota_potential_factor + 
                             hospital_product_quota_growth_factor * weightages[["weightage06"]]$hospital_product_quota_growth_factor)) %>% 
         group_by(representative) %>% 
         mutate(potential_dist = sum(potential, na.rm = TRUE),
@@ -271,23 +284,28 @@ get_result <- function(dat, curves, weightages) {
                                               0),
                hospital_num_dist = n()) %>% 
         ungroup() %>% 
-        mutate(district_potential_factor = 1 / (abs(potential_dist - sum(market[[i]]$potential, na.rm = TRUE)/6) + 1),
-               district_hospital_factor = 1 / (abs(hospital_num_dist - 5) + 1)) %>% 
-        mutate(factor2 = district_potential_factor * weightages[["weightage07"]]$district_potential_factor + 
+        mutate(district_potential_factor = sum(market[[i]]$potential, na.rm = TRUE)/6 / (abs(potential_dist - sum(market[[i]]$potential, na.rm = TRUE)/6) 
+                                                                                         + sum(market[[i]]$potential, na.rm = TRUE)/6),
+               district_hospital_factor = 1 / (abs(hospital_num_dist - 5) + 1),
+               factor2 = district_potential_factor * weightages[["weightage07"]]$district_potential_factor + 
                  district_cross_factor * weightages[["weightage07"]]$district_cross_factor + 
                  district_hospital_factor * weightages[["weightage07"]]$district_hospital_factor) %>% 
-        mutate(offer_attractiveness = oa_base1 * factor1 * factor2,
+        mutate(factor = factor1 * weightages[["weightage09"]]$factor1 + factor2 * weightages[["weightage09"]]$factor2,
+               current_offer_attractiveness = oa_base * factor,
+               p_offer_attractiveness = 50,
+               offer_attractiveness = current_offer_attractiveness * weightages[["weightage05"]]$current_offer_attractiveness + 
+                 p_offer_attractiveness * weightages[["weightage05"]]$previous_offer_attractiveness,
                market_share = ifelse(representative == 0,
                                      0,
                                      sapply(offer_attractiveness, function(x) {curve_func("curve01", curves, x)})),
                market_share = market_share / 100,
                sales = potential * market_share,
-               status = "已开放") %>% 
+               status = "已开发") %>% 
         select(names(cal_data), "market_share", "sales")
     }
     
     data03 <- market[[i]] %>% 
-      filter(status == "未开放") %>% 
+      filter(status == "未开发") %>% 
       arrange(-`potential`) %>% 
       mutate(level = row_number())
     
@@ -302,15 +320,15 @@ get_result <- function(dat, curves, weightages) {
                market_share = 0,
                sales = 0,
                status = ifelse(budget > potential * 0.004,
-                               "即将开放",
-                               "为开放")) %>% 
+                               "正在开发",
+                               "未开发")) %>% 
         select(names(cal_data), "market_share", "sales")
     }
     
     market_result <- bind_rows(data01, data02, data03) %>% 
       mutate(quota_achievement = sales / quota,
              sales_growth = sales / p_sales - 1,
-             quota_growth = quota / p_quota - 1,
+             quota_growth = quota / p_sales - 1,
              ytd_sales = p_ytd_sales + sales,
              sales_year_on_year = sales / pppp_sales - 1,
              sales_month_on_month = sales / p_sales - 1) %>% 
@@ -362,7 +380,7 @@ get_report <- function(result, competitor_data) {
            quota_achievement = sales / quota,
            sales_growth = sales / p_sales - 1,
            quota_contribute = quota / sum(quota, na.rm = TRUE),
-           quota_growth = quota / p_quota - 1,
+           quota_growth = quota / p_sales - 1,
            sales_contribute = sales / sum(sales, na.rm = TRUE),
            sales_year_on_year = sales / pppp_sales - 1,
            sales_month_on_month = sales / p_sales - 1) %>% 
@@ -405,7 +423,7 @@ get_report <- function(result, competitor_data) {
            quota_achievement = sales / quota,
            sales_growth = sales / p_sales - 1,
            quota_contribute = quota / sum(quota, na.rm = TRUE),
-           quota_growth = quota / p_quota - 1,
+           quota_growth = quota / p_sales - 1,
            sales_contribute = sales / sum(sales, na.rm = TRUE),
            sales_year_on_year = sales / pppp_sales - 1,
            sales_month_on_month = sales / p_sales - 1) %>% 
@@ -433,7 +451,7 @@ get_report <- function(result, competitor_data) {
            quota_achievement = sales / quota,
            sales_growth = sales / p_sales - 1,
            quota_contribute = quota / sum(quota, na.rm = TRUE),
-           quota_growth = quota / p_quota - 1,
+           quota_growth = quota / p_sales - 1,
            sales_contribute = sales / sum(sales, na.rm = TRUE),
            sales_year_on_year = sales / pppp_sales - 1,
            sales_month_on_month = sales / p_sales - 1) %>% 
