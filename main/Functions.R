@@ -319,9 +319,11 @@ get_result <- function(dat, curves, weightages) {
         mutate(budget = budget + p_budget + pp_budget + ppp_budget + pppp_budget,
                market_share = 0,
                sales = 0,
-               status = ifelse(budget > potential * 0.004,
+               status = ifelse(product == "威芃可" & budget > potential * 0.005,
                                "正在开发",
-                               "未开发")) %>% 
+                               ifelse(product == "优派西" & budget > potential * 0.006,
+                                      "正在开发",
+                                      "未开发"))) %>% 
         select(names(cal_data), "market_share", "sales")
     }
     
