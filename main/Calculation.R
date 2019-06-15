@@ -5,6 +5,7 @@
 # Date:         29-05-2019
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
+
 calculation <- function(receive) {
   
   if (length(fromJSON(receive)) != 0) {

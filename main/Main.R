@@ -5,7 +5,6 @@
 # Date:         11-06-2019
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
-closeAllConnections()
 
 options(scipen = 200,
         uri = "http://59.110.31.50:8082",
@@ -15,7 +14,6 @@ library(plyr)
 library(dplyr)
 library(tidyr)
 library(DT)
-library(stringi)
 library(jsonlite)
 library(curl)
 library(uuid)
