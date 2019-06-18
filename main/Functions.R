@@ -46,36 +46,16 @@ preprocess <- function(receive) {
            "status" = "drug.entrance.info")
   
   p_data1 <- p_data %>% 
-    filter(phase == current_phase - 1) %>% 
-    rename("p_representative" = "representative",
-           "p_sales" = "sales",
-           "p_quota" = "quota",
-           "p_budget" = "budget",
-           "p_ytd_sales" = "ytd_sales")
+    filter(phase == current_phase - 1)
   
   p_data2 <- p_data %>% 
-    filter(phase == current_phase - 2) %>% 
-    rename("pp_representative" = "representative",
-           "pp_sales" = "sales",
-           "pp_quota" = "quota",
-           "pp_budget" = "budget",
-           "pp_ytd_sales" = "ytd_sales")
+    filter(phase == current_phase - 2)
   
   p_data3 <- p_data %>% 
-    filter(phase == current_phase - 3) %>% 
-    rename("ppp_representative" = "representative",
-           "ppp_sales" = "sales",
-           "ppp_quota" = "quota",
-           "ppp_budget" = "budget",
-           "ppp_ytd_sales" = "ytd_sales")
+    filter(phase == current_phase - 3)
   
   p_data4 <- p_data %>% 
-    filter(phase == current_phase - 4) %>% 
-    rename("pppp_representative" = "representative",
-           "pppp_sales" = "sales",
-           "pppp_quota" = "quota",
-           "pppp_budget" = "budget",
-           "pppp_ytd_sales" = "ytd_sales")
+    filter(phase == current_phase - 4)
   
   product_data <- dat_json[["body"]][["inputs"]][["products"]]
   hospital_data <- select(dat_json[["body"]][["inputs"]], -`products`)
@@ -144,12 +124,26 @@ postprocess <- function(report, assessment, dat) {
 }
 
 ##--- Calculation
-get_result <- function(dat, curves, weightages) {
+get_result <- function(input_data, p_data1, p_data4, phase, curves, weightages) {
   
-  cal_data <- dat$input_data %>% 
-    left_join(dat$p_data1, by = c("hospital", "product")) %>% 
-    left_join(dat$p_data4[c("hospital", "product", "pppp_sales")], by = c("hospital", "product")) %>% 
-    mutate(p_ytd_sales = ifelse(dat$phase %% 4 == 1,
+  p_data1 <- p_data1 %>% 
+    rename("p_representative" = "representative",
+           "p_sales" = "sales",
+           "p_quota" = "quota",
+           "p_budget" = "budget",
+           "p_ytd_sales" = "ytd_sales")
+  
+  p_data4 <- p_data4 %>% 
+    rename("pppp_representative" = "representative",
+           "pppp_sales" = "sales",
+           "pppp_quota" = "quota",
+           "pppp_budget" = "budget",
+           "pppp_ytd_sales" = "ytd_sales")
+  
+  cal_data <- input_data %>% 
+    left_join(p_data1, by = c("hospital", "product")) %>% 
+    left_join(p_data4[c("hospital", "product", "pppp_sales")], by = c("hospital", "product")) %>% 
+    mutate(p_ytd_sales = ifelse(phase %% 4 == 1,
                                 0,
                                 p_ytd_sales),
            status = ifelse(is.na(status),
@@ -339,7 +333,7 @@ get_result <- function(dat, curves, weightages) {
     
     if (nrow(data03) > 0) {
       data03 <- data03 %>% 
-        left_join(dat$p_data1[c("hospital", "product", "p_budget")], by = c("hospital", "product")) %>% 
+        left_join(p_data1[c("hospital", "product", "p_budget")], by = c("hospital", "product")) %>% 
         mutate_all(function(x) {ifelse(is.na(x) | is.infinite(x), 0, x)}) %>% 
         mutate(budget = budget + p_budget,
                market_share = 0,
@@ -497,19 +491,26 @@ get_report <- function(result, competitor_data) {
   return(report)
 }
 
-get_assessment <- function(result, dat) {
+get_assessment <- function(result, p_data2, scenarios) {
   
-  pp_quota_achievement <- sum(dat$p_data2$sales, na.rm = TRUE) / sum(dat$p_data2$quota, na.rm = TRUE)
+  p_data2 <- p_data2 %>% 
+    rename("pp_representative" = "representative",
+           "pp_sales" = "sales",
+           "pp_quota" = "quota",
+           "pp_budget" = "budget",
+           "pp_ytd_sales" = "ytd_sales")
+  
+  pp_quota_achievement <- sum(p_data2$sales, na.rm = TRUE) / sum(p_data2$quota, na.rm = TRUE)
   
   p_quota_achievement <- sum(result$p_sales, na.rm = TRUE) / sum(result$p_quota, na.rm = TRUE)
   
   quota_achievement <- sum(result$sales, na.rm = TRUE) / sum(result$quota, na.rm = TRUE)
   
-  total_quota_achievement <- sum(c(dat$p_data2$sales, result$p_sales, result$sales), na.rm = TRUE) / 
-    sum(dat$p_data2$quota, result$p_quota, result$quota, na.rm = TRUE)
+  total_quota_achievement <- sum(c(p_data2$sales, result$p_sales, result$sales), na.rm = TRUE) / 
+    sum(p_data2$quota, result$p_quota, result$quota, na.rm = TRUE)
   
   assessment <- result %>% 
-    left_join(dat$p_data2, by = c("hospital")) %>% 
+    left_join(p_data2, by = c("hospital")) %>% 
     select(`sales`, `quota`, `p_sales`, `p_quota`, `pp_sales`, `pp_quota`) %>% 
     summarise(sales = sum(sales, na.rm = TRUE),
               quota = sum(quota, na.rm = TRUE),
@@ -533,11 +534,11 @@ get_assessment <- function(result, dat) {
   
   assessment_report <- list("level" = assessment$level,
                             "total-quota-achievement" = assessment$total_quota_achievement,
-                            "scenarioResult" = list(list("scenario-id" = dat$scenarios$id[which(dat$scenarios$phase == 1)],
+                            "scenarioResult" = list(list("scenario-id" = scenarios$id[which(scenarios$phase == 1)],
                                                          "quota-achievement" = assessment$pp_quota_achievement),
-                                                    list("scenario-id" = dat$scenarios$id[which(dat$scenarios$phase == 2)],
+                                                    list("scenario-id" = scenarios$id[which(scenarios$phase == 2)],
                                                          "quota-achievement" = assessment$p_quota_achievement),
-                                                    list("scenario-id" = dat$scenarios$id[which(dat$scenarios$phase == 3)],
+                                                    list("scenario-id" = scenarios$id[which(scenarios$phase == 3)],
                                                          "quota-achievement" = assessment$quota_achievement)))
   
   return(assessment_report)
