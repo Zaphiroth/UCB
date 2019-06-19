@@ -416,7 +416,9 @@ get_report <- function(result, competitor_data) {
   competitor_report <- result %>% 
     group_by(product_area) %>% 
     summarise(potential = sum(potential, na.rm = TRUE),
-              market_share_p = sum(market_share, na.rm = TRUE)) %>% 
+              sales = sum(sales, na.rm = TRUE)) %>% 
+    ungroup() %>% 
+    mutate(market_share_p = sales / potential) %>% 
     right_join(competitor_data, by = c("product_area")) %>% 
     mutate(market_share = ifelse(product == "癫痫竞品1",
                                  (1 - market_share_p) * sample(seq(0.3, 0.5, 0.01), 1),
