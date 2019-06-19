@@ -374,8 +374,12 @@ get_report <- function(result, competitor_data) {
   
   hospital_report <- result %>% 
     bind_rows(out_hospital_report) %>% 
-    mutate(quota_contribute = quota / sum(quota, na.rm = TRUE),
-           sales_contribute = sales / sum(sales, na.rm = TRUE)) %>% 
+    group_by(product_id) %>% 
+    mutate(quota_sum = sum(quota, na.rm = TRUE),
+           sales_sum = sum(sales, na.rm = TRUE)) %>% 
+    ungroup() %>% 
+    mutate(quota_contribute = quota / quota_sum,
+           sales_contribute = sales / sales_sum) %>% 
     select(hospital_id, product_id, representative_id, potential, quota, market_share, sales, 
            quota_achievement, sales_growth, quota_contribute, quota_growth, ytd_sales, sales_contribute, 
            sales_year_on_year, sales_month_on_month, status, patient) %>% 
@@ -397,12 +401,16 @@ get_report <- function(result, competitor_data) {
               quota = sum(quota, na.rm = TRUE),
               patient = sum(patient, na.rm = TRUE)) %>% 
     ungroup() %>% 
+    group_by(product_id) %>% 
+    mutate(quota_sum = sum(quota, na.rm = TRUE),
+           sales_sum = sum(sales, na.rm = TRUE)) %>% 
+    ungroup() %>% 
     mutate(market_share = sales / potential,
            quota_achievement = sales / quota,
            sales_growth = sales / p_sales - 1,
-           quota_contribute = quota / sum(quota, na.rm = TRUE),
+           quota_contribute = quota / quota_sum,
            quota_growth = quota / p_sales - 1,
-           sales_contribute = sales / sum(sales, na.rm = TRUE),
+           sales_contribute = sales / sales_sum,
            sales_year_on_year = sales / pppp_sales - 1,
            sales_month_on_month = sales / p_sales - 1) %>% 
     select(representative_id, product_id, potential, quota, market_share, sales, quota_achievement, sales_growth, 
@@ -470,12 +478,16 @@ get_report <- function(result, competitor_data) {
               quota = sum(quota, na.rm = TRUE),
               patient = sum(patient, na.rm = TRUE)) %>% 
     ungroup() %>% 
+    group_by(product_id) %>% 
+    mutate(quota_sum = sum(quota, na.rm = TRUE),
+           sales_sum = sum(sales, na.rm = TRUE)) %>% 
+    ungroup() %>% 
     mutate(market_share = sales / potential,
            quota_achievement = sales / quota,
            sales_growth = sales / p_sales - 1,
-           quota_contribute = quota / sum(quota, na.rm = TRUE),
+           quota_contribute = quota / quota_sum,
            quota_growth = quota / p_sales - 1,
-           sales_contribute = sales / sum(sales, na.rm = TRUE),
+           sales_contribute = sales / sales_sum,
            sales_year_on_year = sales / pppp_sales - 1,
            sales_month_on_month = sales / p_sales - 1) %>% 
     select(city_id, product_id, quota, market_share, sales, quota_achievement, sales_growth, quota_contribute, 
