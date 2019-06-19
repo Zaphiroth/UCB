@@ -124,7 +124,7 @@ postprocess <- function(report, assessment, dat) {
 }
 
 ##--- Calculation
-get_result <- function(input_data, p_data1, p_data4, phase, curves, weightages) {
+get_result <- function(input_data, p_data1, p_data4, current_phase, curves, weightages) {
   
   p_data1 <- p_data1 %>% 
     rename("p_representative" = "representative",
@@ -143,7 +143,7 @@ get_result <- function(input_data, p_data1, p_data4, phase, curves, weightages) 
   cal_data <- input_data %>% 
     left_join(p_data1, by = c("hospital", "product")) %>% 
     left_join(p_data4[c("hospital", "product", "pppp_sales")], by = c("hospital", "product")) %>% 
-    mutate(p_ytd_sales = ifelse(phase %% 4 == 1,
+    mutate(p_ytd_sales = ifelse(current_phase %% 4 == 1,
                                 0,
                                 p_ytd_sales),
            status = ifelse(is.na(status),
