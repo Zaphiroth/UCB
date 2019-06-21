@@ -12,7 +12,7 @@ run <- TRUE
 consumerInstance <- function() {
   
   uri <- options()$uri
-  groupName = "RCalc"
+  groupName = "RCalcTest"
   consumerName <- paste0(UUIDgenerate(TRUE),"_consumer") #"001" # paste0(UUIDgenerate(TRUE),"_consumer")
   
   handle <- new_handle()
@@ -58,7 +58,7 @@ subscription <- function(groupName, consumerName) {
   handle <- new_handle()
   handle_setheaders(handle, "Content-Type" = "application/vnd.kafka.v2+json")
   
-  data <- jsonlite::toJSON(list(topics = list("GoCallRTopic")), auto_unbox = TRUE)
+  data <- jsonlite::toJSON(list(topics = list("GoCallRTopicTest")), auto_unbox = TRUE)
   handle_setopt(handle, copypostfields = data);
   
   con <- curl(url, handle = handle)
