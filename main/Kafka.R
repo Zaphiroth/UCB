@@ -34,7 +34,7 @@ consumerInstance <- function() {
       print(jsonlite::prettify(paste(out, collapse = "")))
     }
     
-    close(con)
+    # close(con)
     
   }, error = function(e){
     
@@ -88,7 +88,7 @@ callRConsumer <- function(consumerName, groupName) {
       calculation(receive)
     }
     
-    close(con)
+    # close(con)
     
   }, error = function(e) {
     
