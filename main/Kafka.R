@@ -24,7 +24,7 @@ consumerInstance <- function() {
   tryCatch({
     url <- paste0(uri, "/consumers/", groupName)
     
-    con <- curl(url, handle = handle)
+    # con <- curl(url, handle = handle)
     # open(con, "rb", blocking = FALSE)
     curl_fetch_memory(url, handle = handle)
     
@@ -62,7 +62,7 @@ subscription <- function(groupName, consumerName) {
   data <- jsonlite::toJSON(list(topics = list("GoCallRTopicTest")), auto_unbox = TRUE)
   handle_setopt(handle, copypostfields = data);
   
-  con <- curl(url, handle = handle)
+  # con <- curl(url, handle = handle)
   # open(con, "rb", blocking = FALSE)
   # close(con)
   curl_fetch_memory(url, handle = handle)
@@ -80,10 +80,10 @@ callRConsumer <- function(consumerName, groupName) {
     
     con <- curl(url, handle = handle)
     # open(con, "rb", blocking = FALSE)
-    curl_fetch_memory(url, handle = handle)
     
     while(isIncomplete(con)) {
-      out <- readLines(con, warn = FALSE)
+      # out <- readLines(con, warn = FALSE)
+      out <- curl_fetch_memory(url, handle = handle)
       receive <- paste(out, collapse = "")
       calculation(receive)
     }
@@ -111,7 +111,7 @@ sendResultMessage <- function(uri, topic, body) {
   handle_setopt(handle, copypostfields = body);
   
   url <- paste0(uri, "/" ,topic)
-  con <- curl(url, handle = handle)
+  # con <- curl(url, handle = handle)
   # open(con, "rb", blocking = FALSE)
   curl_fetch_memory(url, handle = handle)
 }
