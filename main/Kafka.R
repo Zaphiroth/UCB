@@ -25,7 +25,8 @@ consumerInstance <- function() {
     url <- paste0(uri, "/consumers/", groupName)
     
     con <- curl(url, handle = handle)
-    open(con, "rb", blocking = FALSE)
+    # open(con, "rb", blocking = FALSE)
+    curl_fetch_memory(url, handle = handle)
     
     while (isIncomplete(con)) {
       out <- readLines(con, warn = FALSE)
@@ -62,8 +63,9 @@ subscription <- function(groupName, consumerName) {
   handle_setopt(handle, copypostfields = data);
   
   con <- curl(url, handle = handle)
-  open(con, "rb", blocking = FALSE)
-  close(con)
+  # open(con, "rb", blocking = FALSE)
+  # close(con)
+  curl_fetch_memory(url, handle = handle)
 }
 
 ##----
@@ -77,7 +79,8 @@ callRConsumer <- function(consumerName, groupName) {
     handle_setheaders(handle, "Accept" = "application/vnd.kafka.json.v2+json")
     
     con <- curl(url, handle = handle)
-    open(con, "rb", blocking = FALSE)
+    # open(con, "rb", blocking = FALSE)
+    curl_fetch_memory(url, handle = handle)
     
     while(isIncomplete(con)) {
       out <- readLines(con, warn = FALSE)
@@ -109,7 +112,8 @@ sendResultMessage <- function(uri, topic, body) {
   
   url <- paste0(uri, "/" ,topic)
   con <- curl(url, handle = handle)
-  open(con, "rb", blocking = FALSE)
+  # open(con, "rb", blocking = FALSE)
+  curl_fetch_memory(url, handle = handle)
 }
 
 ##----
