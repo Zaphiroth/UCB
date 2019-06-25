@@ -84,14 +84,17 @@ callRConsumer <- function(consumerName, groupName) {
     while(isIncomplete(con)) {
       # out <- readLines(con, warn = FALSE)
       out <- curl_fetch_memory(url, handle = handle)
+      
       if (grep("\"error_code\"", out) == 1) {
-        sendResultMessage(paste0(options()$uri, "/topics"), "RReturnResult", out)
+        send <- toJSON(list(records = list(list(value = as.list(out)))),auto_unbox = TRUE)
         
       } else {
         receive <- paste(out, collapse = "")
-        calculation(receive)
+        send_data <- calculation(receive)
+        send <- toJSON(list(records = list(list(value = as.list(send_data)))),auto_unbox = TRUE)
       }
       
+      sendResultMessage(paste0(options()$uri, "/topics"), "RReturnResult", send)
     }
     
     # close(con)

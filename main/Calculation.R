@@ -27,12 +27,6 @@ calculation <- function(receive) {
       send_data <- list("error" = list("code" = 500,
                                        "msg" = "Calculation error. "))
     })
-    
-    send <- toJSON(list(records = list(list(value = as.list(send_data)))),auto_unbox = TRUE)
-    sendResultMessage(paste0(options()$uri, "/topics"), "RReturnResult", send)
-    # print(prettify(send))  ## 非必要
   }
-  
-  print("null")  ## 非必要
 }
 
