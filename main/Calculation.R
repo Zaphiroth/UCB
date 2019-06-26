@@ -29,7 +29,7 @@ calculation <- function(receive) {
     })
     
     send <- toJSON(list(records = list(list(value = as.list(send_data)))),auto_unbox = TRUE)
-    sendResultMessage(paste0(options()$uri, "/topics"), "RReturnResult", send)
+    sendResultMessage(paste0(options()$uri, "/topics"), options()$sendTopics, send)
   }
 }
 

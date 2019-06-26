@@ -12,7 +12,7 @@ run <- TRUE
 consumerInstance <- function() {
   
   uri <- options()$uri
-  groupName = "RCalcTest"
+  groupName = options()$groupName
   consumerName <- paste0(UUIDgenerate(TRUE),"_consumer") #"001" # paste0(UUIDgenerate(TRUE),"_consumer")
   
   handle <- new_handle()
@@ -26,13 +26,15 @@ consumerInstance <- function() {
     
     # con <- curl(url, handle = handle)
     # open(con, "rb", blocking = FALSE)
-    curl_fetch_memory(url, handle = handle)
+    out <- curl_fetch_memory(url, handle = handle)
+    print("Consumer Instance")
+    print(jsonlite::prettify(paste(out, collapse = "")))
     
-    while (isIncomplete(con)) {
-      out <- readLines(con, warn = FALSE)
-      print("Consumer Instance")
-      print(jsonlite::prettify(paste(out, collapse = "")))
-    }
+    # while (isIncomplete(con)) {
+    #   out <- readLines(con, warn = FALSE)
+    #   print("Consumer Instance")
+    #   print(jsonlite::prettify(paste(out, collapse = "")))
+    # }
     
     # close(con)
     
@@ -59,7 +61,7 @@ subscription <- function(groupName, consumerName) {
   handle <- new_handle()
   handle_setheaders(handle, "Content-Type" = "application/vnd.kafka.v2+json")
   
-  data <- jsonlite::toJSON(list(topics = list("GoCallRTopicTest")), auto_unbox = TRUE)
+  data <- jsonlite::toJSON(list(topics = list(options()$receiveTopics)), auto_unbox = TRUE)
   handle_setopt(handle, copypostfields = data);
   
   # con <- curl(url, handle = handle)
@@ -78,22 +80,21 @@ callRConsumer <- function(consumerName, groupName) {
     handle <- new_handle()
     handle_setheaders(handle, "Accept" = "application/vnd.kafka.json.v2+json")
     
-    con <- curl(url, handle = handle)
+    # con <- curl(url, handle = handle)
     # open(con, "rb", blocking = FALSE)
     
-    while(isIncomplete(con)) {
+    # while(isIncomplete(con)) {
       # out <- readLines(con, warn = FALSE)
-      out <- curl_fetch_memory(url, handle = handle)
+    out <- curl_fetch_memory(url, handle = handle)
+    
+    if (grep("\"error_code\"", out) == 1) {
+      stop(out)
       
-      if (grep("\"error_code\"", out) == 1) {
-        print(out)
-        errorerror  # make an error
-        
-      } else {
-        receive <- paste(out, collapse = "")
-        calculation(receive)
-      }
+    } else {
+      receive <- paste(out, collapse = "")
+      calculation(receive)
     }
+    # }
     
     # close(con)
     

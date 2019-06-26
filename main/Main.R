@@ -6,10 +6,6 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 
-options(scipen = 200,
-        uri = "http://59.110.31.50:8082",
-        stringsAsFactors = FALSE)
-
 library(plyr)
 library(dplyr)
 library(tidyr)
@@ -23,6 +19,14 @@ source("./Functions.R", encoding = "UTF-8")
 source("./Calculation.R", encoding = "UTF-8")
 
 load("./intermedia.RData")
+envir <- read_json("./envir.json")
+
+options(scipen = 200,
+        uri = envir$uri,
+        groupName = envir$groupName,
+        receiveTopics = envir$receiveTopics,
+        sendTopics = envir$sendTopics,
+        stringsAsFactors = FALSE)
 
 main <- function() {
   start(callRConsumer, "", "")

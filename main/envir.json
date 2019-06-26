@@ -1,0 +1,7 @@
+{
+    "uri": "http://59.110.31.50:8082",
+    "groupName": "RCalcTest",
+    "receiveTopics": "GoCallRTopicTest",
+    "sendTopics": "RReturnResultTest"
+}
+
