@@ -86,22 +86,21 @@ callRConsumer <- function(consumerName, groupName) {
       out <- curl_fetch_memory(url, handle = handle)
       
       if (grep("\"error_code\"", out) == 1) {
-        send <- toJSON(list(records = list(list(value = as.list(out)))),auto_unbox = TRUE)
+        print(out)
+        errorerror  # make an error
         
       } else {
         receive <- paste(out, collapse = "")
-        send_data <- calculation(receive)
-        send <- toJSON(list(records = list(list(value = as.list(send_data)))),auto_unbox = TRUE)
+        calculation(receive)
       }
-      
-      sendResultMessage(paste0(options()$uri, "/topics"), "RReturnResult", send)
     }
     
     # close(con)
     
   }, error = function(e) {
     
-    if (conditionMessage(e) == "HTTP error 404.") {
+    # if (conditionMessage(e) == "HTTP error 404.") {
+    if (grep("\"error_code\":404", out) == 1) {
       
       res <- consumerInstance() # 获取Consumer实例
       subscription(res$groupName, res$consumerName) # 订阅
