@@ -161,7 +161,7 @@ get_result <- function(input_data, p_data1, p_data4, current_phase, curves, weig
   market <- list()
   for (i in unique(cal_data$product)) {
     market[[i]] <- cal_data[which(cal_data$product == i), ] %>% 
-      mutate(budget_prop = budget / sum(budget, na.rm = TRUE) * 100)
+      mutate(budget_prop = budget / sum(budget) * 100)
   }
   
   result <- data.frame()
@@ -170,7 +170,7 @@ get_result <- function(input_data, p_data1, p_data4, current_phase, curves, weig
     
     data01 <- market[[i]] %>% 
       filter(status == "已开发") %>% 
-      mutate(level_base = 0.8 * potential / sum(potential, na.rm = TRUE) + 0.2 * p_sales / sum(p_sales, na.rm = TRUE)) %>% 
+      mutate(level_base = 0.8 * potential / sum(potential) + 0.2 * p_sales / sum(p_sales)) %>% 
       arrange(-`level_base`) %>% 
       mutate(level = row_number())
     
@@ -193,28 +193,28 @@ get_result <- function(input_data, p_data1, p_data4, current_phase, curves, weig
                                                                    sapply(budget_prop, function(x) {curve_func("curve04", curves, x)}),
                                                                    0))),
                                               0))) %>% 
-        mutate(hospital_quota_potential_factor = ifelse(sum(quota, na.rm = TRUE) == 0,
+        mutate(hospital_quota_potential_factor = ifelse(sum(quota) == 0,
                                                         0,
                                                         ks.test(.$quota/sum(.$quota), .$potential/sum(.$potential), exact = TRUE)$p.value),
                hospital_quota_potential_factor = ifelse(hospital_quota_potential_factor < 0,
                                                         0,
                                                         hospital_quota_potential_factor),
-               hospital_quota_sales_factor = ifelse(sum(quota, na.rm = TRUE) == 0,
+               hospital_quota_sales_factor = ifelse(sum(quota) == 0,
                                                     0,
                                                     ks.test(.$quota/sum(.$quota), .$p_sales/sum(.$p_sales), exact = TRUE)$p.value),
                hospital_quota_sales_factor = ifelse(hospital_quota_sales_factor < 0,
                                                     0,
                                                     hospital_quota_sales_factor),
                hospital_product_quota_growth_factor = 1 / (abs((quota - p_sales) / (potential - p_sales) - 
-                                                                 (sum(quota, na.rm = TRUE) - sum(p_sales, na.rm = TRUE)) / 
-                                                                 (sum(potential, na.rm = TRUE) - sum(p_sales, na.rm = TRUE))) + 1),
+                                                                 (sum(quota) - sum(p_sales)) / 
+                                                                 (sum(potential) - sum(p_sales))) + 1),
                factor1 = 
                  hospital_quota_potential_factor * weightages[["weightage01"]]$hospital_quota_potential_factor * weightages[["weightage02"]]$factor1 + 
                  hospital_quota_sales_factor * weightages[["weightage01"]]$hospital_quota_sales_factor * weightages[["weightage02"]]$factor1 + 
                  hospital_product_quota_growth_factor * weightages[["weightage02"]]$hospital_product_quota_growth_factor) %>% 
         group_by(representative) %>% 
-        mutate(potential_dist = sum(potential, na.rm = TRUE),
-               sales_dist = sum(p_sales, na.rm = TRUE),
+        mutate(potential_dist = sum(potential),
+               sales_dist = sum(p_sales),
                district_cross_factor = ifelse(length(unique(city)) == 1,
                                               1,
                                               0),
@@ -264,7 +264,7 @@ get_result <- function(input_data, p_data1, p_data4, current_phase, curves, weig
     
     data02 <- market[[i]] %>%
       filter(status == "正在开发") %>% 
-      mutate(level_base = 0.8 * potential / sum(potential, na.rm = TRUE) + 0.2 * p_sales / sum(p_sales, na.rm = TRUE)) %>% 
+      mutate(level_base = 0.8 * potential / sum(potential) + 0.2 * p_sales / sum(p_sales)) %>% 
       arrange(-`level_base`) %>% 
       mutate(level = row_number())
     
@@ -287,7 +287,7 @@ get_result <- function(input_data, p_data1, p_data4, current_phase, curves, weig
                                                                    sapply(budget_prop, function(x) {curve_func("curve04", curves, x)}),
                                                                    0))),
                                               0))) %>% 
-        mutate(hospital_quota_potential_factor = ifelse(sum(quota, na.rm = TRUE) == 0,
+        mutate(hospital_quota_potential_factor = ifelse(sum(quota) == 0,
                                                         0,
                                                         ks.test(.$quota/sum(.$quota), .$potential/sum(.$potential), exact = TRUE)$p.value),
                hospital_quota_potential_factor = ifelse(hospital_quota_potential_factor < 0,
@@ -297,7 +297,7 @@ get_result <- function(input_data, p_data1, p_data4, current_phase, curves, weig
                factor1 = (hospital_quota_potential_factor * weightages[["weightage06"]]$hospital_quota_potential_factor + 
                             hospital_product_quota_growth_factor * weightages[["weightage06"]]$hospital_product_quota_growth_factor)) %>% 
         group_by(representative) %>% 
-        mutate(potential_dist = sum(potential, na.rm = TRUE),
+        mutate(potential_dist = sum(potential),
                district_cross_factor = ifelse(length(unique(city)) == 1,
                                               1,
                                               0),
@@ -374,7 +374,7 @@ get_report <- function(result, competitor_data) {
   
   out_hospital_report <- result %>% 
     group_by(product_id) %>% 
-    summarise(potential = sum(potential, na.rm = TRUE) * 0.01) %>% 
+    summarise(potential = sum(potential) * 0.01) %>% 
     ungroup() %>% 
     mutate(hospital_id = "-1",
            representative_id = "-1",
@@ -383,8 +383,8 @@ get_report <- function(result, competitor_data) {
   hospital_report <- result %>% 
     bind_rows(out_hospital_report) %>% 
     group_by(product_id) %>% 
-    mutate(quota_sum = sum(quota, na.rm = TRUE),
-           sales_sum = sum(sales, na.rm = TRUE)) %>% 
+    mutate(quota_sum = sum(quota),
+           sales_sum = sum(sales)) %>% 
     ungroup() %>% 
     mutate(quota_contribute = quota / quota_sum,
            sales_contribute = sales / sales_sum) %>% 
@@ -400,18 +400,18 @@ get_report <- function(result, competitor_data) {
   representative_report <- result %>% 
     select(representative_id, product_id, potential, pppp_sales, p_sales, p_quota, sales, ytd_sales, quota, patient) %>% 
     group_by(product_id, representative_id) %>% 
-    summarise(potential = sum(potential, na.rm = TRUE),
-              pppp_sales = sum(pppp_sales, na.rm = TRUE),
-              p_sales = sum(p_sales, na.rm = TRUE),
-              p_quota = sum(p_quota, na.rm = TRUE),
-              sales = sum(sales, na.rm = TRUE),
-              ytd_sales = sum(ytd_sales, na.rm = TRUE),
-              quota = sum(quota, na.rm = TRUE),
-              patient = sum(patient, na.rm = TRUE)) %>% 
+    summarise(potential = sum(potential),
+              pppp_sales = sum(pppp_sales),
+              p_sales = sum(p_sales),
+              p_quota = sum(p_quota),
+              sales = sum(sales),
+              ytd_sales = sum(ytd_sales),
+              quota = sum(quota),
+              patient = sum(patient)) %>% 
     ungroup() %>% 
     group_by(product_id) %>% 
-    mutate(quota_sum = sum(quota, na.rm = TRUE),
-           sales_sum = sum(sales, na.rm = TRUE)) %>% 
+    mutate(quota_sum = sum(quota),
+           sales_sum = sum(sales)) %>% 
     ungroup() %>% 
     mutate(market_share = sales / potential,
            quota_achievement = sales / quota,
@@ -441,21 +441,21 @@ get_report <- function(result, competitor_data) {
   product_report <- result %>% 
     select(product_id, potential, pppp_sales, p_sales, p_quota, sales, ytd_sales, quota, patient) %>% 
     group_by(product_id) %>% 
-    summarise(potential = sum(potential, na.rm = TRUE),
-              pppp_sales = sum(pppp_sales, na.rm = TRUE),
-              p_sales = sum(p_sales, na.rm = TRUE),
-              p_quota = sum(p_quota, na.rm = TRUE),
-              sales = sum(sales, na.rm = TRUE),
-              ytd_sales = sum(ytd_sales, na.rm = TRUE),
-              quota = sum(quota, na.rm = TRUE),
-              patient = sum(patient, na.rm = TRUE)) %>% 
+    summarise(potential = sum(potential),
+              pppp_sales = sum(pppp_sales),
+              p_sales = sum(p_sales),
+              p_quota = sum(p_quota),
+              sales = sum(sales),
+              ytd_sales = sum(ytd_sales),
+              quota = sum(quota),
+              patient = sum(patient)) %>% 
     ungroup() %>% 
     mutate(market_share = sales / potential,
            quota_achievement = sales / quota,
            sales_growth = sales / p_sales - 1,
-           quota_contribute = quota / sum(quota, na.rm = TRUE),
+           quota_contribute = quota / sum(quota),
            quota_growth = quota / p_sales - 1,
-           sales_contribute = sales / sum(sales, na.rm = TRUE),
+           sales_contribute = sales / sum(sales),
            sales_year_on_year = sales / pppp_sales - 1,
            sales_month_on_month = sales / p_sales - 1) %>% 
     select(product_id, quota, market_share, sales, quota_achievement, sales_growth, quota_contribute, quota_growth, 
@@ -469,18 +469,18 @@ get_report <- function(result, competitor_data) {
   city_report <- result %>% 
     select(city_id, product_id, potential, pppp_sales, p_sales, p_quota, sales, ytd_sales, quota, patient) %>% 
     group_by(city_id, product_id) %>% 
-    summarise(potential = sum(potential, na.rm = TRUE),
-              pppp_sales = sum(pppp_sales, na.rm = TRUE),
-              p_sales = sum(p_sales, na.rm = TRUE),
-              p_quota = sum(p_quota, na.rm = TRUE),
-              sales = sum(sales, na.rm = TRUE),
-              ytd_sales = sum(ytd_sales, na.rm = TRUE),
-              quota = sum(quota, na.rm = TRUE),
-              patient = sum(patient, na.rm = TRUE)) %>% 
+    summarise(potential = sum(potential),
+              pppp_sales = sum(pppp_sales),
+              p_sales = sum(p_sales),
+              p_quota = sum(p_quota),
+              sales = sum(sales),
+              ytd_sales = sum(ytd_sales),
+              quota = sum(quota),
+              patient = sum(patient)) %>% 
     ungroup() %>% 
     group_by(product_id) %>% 
-    mutate(quota_sum = sum(quota, na.rm = TRUE),
-           sales_sum = sum(sales, na.rm = TRUE)) %>% 
+    mutate(quota_sum = sum(quota),
+           sales_sum = sum(sales)) %>% 
     ungroup() %>% 
     mutate(market_share = sales / potential,
            quota_achievement = sales / quota,
@@ -514,24 +514,24 @@ get_assessment <- function(result, p_data2, scenarios) {
            "pp_budget" = "budget",
            "pp_ytd_sales" = "ytd_sales")
   
-  pp_quota_achievement <- sum(p_data2$sales, na.rm = TRUE) / sum(p_data2$quota, na.rm = TRUE)
+  pp_quota_achievement <- sum(p_data2$sales) / sum(p_data2$quota)
   
-  p_quota_achievement <- sum(result$p_sales, na.rm = TRUE) / sum(result$p_quota, na.rm = TRUE)
+  p_quota_achievement <- sum(result$p_sales) / sum(result$p_quota)
   
-  quota_achievement <- sum(result$sales, na.rm = TRUE) / sum(result$quota, na.rm = TRUE)
+  quota_achievement <- sum(result$sales) / sum(result$quota)
   
-  total_quota_achievement <- sum(c(p_data2$sales, result$p_sales, result$sales), na.rm = TRUE) / 
-    sum(p_data2$quota, result$p_quota, result$quota, na.rm = TRUE)
+  total_quota_achievement <- sum(c(p_data2$sales, result$p_sales, result$sales)) / 
+    sum(p_data2$quota, result$p_quota, result$quota)
   
   assessment <- result %>% 
     left_join(p_data2, by = c("hospital")) %>% 
     select(`sales`, `quota`, `p_sales`, `p_quota`, `pp_sales`, `pp_quota`) %>% 
-    summarise(sales = sum(sales, na.rm = TRUE),
-              quota = sum(quota, na.rm = TRUE),
-              p_sales = sum(p_sales, na.rm = TRUE),
-              p_quota = sum(p_quota, na.rm = TRUE),
-              pp_sales = sum(pp_sales, na.rm = TRUE),
-              pp_quota = sum(pp_quota, na.rm = TRUE)) %>% 
+    summarise(sales = sum(sales),
+              quota = sum(quota),
+              p_sales = sum(p_sales),
+              p_quota = sum(p_quota),
+              pp_sales = sum(pp_sales),
+              pp_quota = sum(pp_quota)) %>% 
     mutate(pp_quota_achievement = pp_sales / pp_quota,
            p_quota_achievement = p_sales / p_quota,
            quota_achievement = sales / quota,
