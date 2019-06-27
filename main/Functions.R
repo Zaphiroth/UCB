@@ -36,7 +36,7 @@ preprocess <- function(receive) {
   
   current_phase <- dat_json[["currentScenario"]][["phase"]]
   
-  p_data <- do.call(data.frame, dat_json[["body"]][["histories"]]) %>% 
+  p_data <- do.call(data.frame, dat_json[["body"]][["histories"]][["hospitals"]]) %>% 
     rename("phase" = "scenario.phase",
            "hospital" = "hospital.name",
            "representative" = "representative.name",
@@ -84,10 +84,11 @@ preprocess <- function(receive) {
     select(`city_id`, `city`, `hospital_id`, `hospital_level`, `hospital`, `representative_id`, `representative`, 
            `product_id`, `product`, `product_area`, `quota`, `budget`, `potential`, `patient`)
   
-  competitor_data <- do.call(data.frame, dat_json[["body"]][["competitions"]]) %>% 
+  competitor_data <- do.call(data.frame, dat_json[["body"]][["histories"]][["competitions"]]) %>% 
     rename("product_id" = "product.id",
            "product" = "product.name",
-           "product_area" = "treatment.area")
+           "product_area" = "treatment.area",
+           "market_share_c" = "share")
   
   dat <- list("header" = dat_json[["header"]],
               "account" = dat_json[["account"]],
@@ -154,6 +155,9 @@ get_result <- function(input_data, p_data1, p_data4, current_phase, curves, weig
            `status`, `p_quota`, `p_sales`, `pppp_sales`, `p_ytd_sales`, `quota`, `budget`) %>% 
     mutate_all(function(x) {ifelse(is.na(x) | is.infinite(x), 0, x)})
   
+  rep_num <- length(unique(cal_data$representative))
+  hosp_num <- length(unique(cal_data$hospital))
+  
   market <- list()
   for (i in unique(cal_data$product)) {
     market[[i]] <- cal_data[which(cal_data$product == i), ] %>% 
@@ -189,11 +193,15 @@ get_result <- function(input_data, p_data1, p_data4, current_phase, curves, weig
                                                                    sapply(budget_prop, function(x) {curve_func("curve04", curves, x)}),
                                                                    0))),
                                               0))) %>% 
-        mutate(hospital_quota_potential_factor = ks.test(.$quota/sum(.$quota), .$potential/sum(.$potential), exact = TRUE)$p.value,
+        mutate(hospital_quota_potential_factor = ifelse(sum(quota, na.rm = TRUE) == 0,
+                                                        0,
+                                                        ks.test(.$quota/sum(.$quota), .$potential/sum(.$potential), exact = TRUE)$p.value),
                hospital_quota_potential_factor = ifelse(hospital_quota_potential_factor < 0,
                                                         0,
                                                         hospital_quota_potential_factor),
-               hospital_quota_sales_factor = ks.test(.$quota/sum(.$quota), .$p_sales/sum(.$p_sales), exact = TRUE)$p.value,
+               hospital_quota_sales_factor = ifelse(sum(quota, na.rm = TRUE) == 0,
+                                                    0,
+                                                    ks.test(.$quota/sum(.$quota), .$p_sales/sum(.$p_sales), exact = TRUE)$p.value),
                hospital_quota_sales_factor = ifelse(hospital_quota_sales_factor < 0,
                                                     0,
                                                     hospital_quota_sales_factor),
@@ -212,23 +220,21 @@ get_result <- function(input_data, p_data1, p_data4, current_phase, curves, weig
                                               0),
                hospital_num_dist = n()) %>% 
         ungroup() %>% 
-        mutate(district_potential_factor = sum(market[[i]]$potential, na.rm = TRUE)/6 / (abs(potential_dist - sum(market[[i]]$potential, na.rm = TRUE)/6) 
-                                                                                         + sum(market[[i]]$potential, na.rm = TRUE)/6),
-               district_sales_factor = sum(market[[i]]$p_sales, na.rm = TRUE)/6 / (abs(sales_dist - sum(market[[i]]$p_sales, na.rm = TRUE)/6) 
-                                                                                   + sum(market[[i]]$p_sales, na.rm = TRUE)/6),
-               district_hospital_factor = 1 / (abs(hospital_num_dist - 5) + 1),
+        mutate(district_potential_factor = 1 / (abs(rep_num * potential_dist/sum(market[[i]]$potential) - 1) + 1),
+               district_sales_factor = 1 / (abs(rep_num * sales_dist/sum(market[[i]]$p_sales) - 1) + 1),
+               district_hospital_factor = 1 / (abs(rep_num * hospital_num_dist / hosp_num - 1) + 1),
                factor2 = district_potential_factor * weightages[["weightage03"]]$district_potential_factor * weightages[["weightage04"]]$factor2 + 
                  district_sales_factor * weightages[["weightage03"]]$district_sales_factor * weightages[["weightage04"]]$factor2 + 
                  district_cross_factor * weightages[["weightage04"]]$district_cross_factor + 
                  district_hospital_factor * weightages[["weightage04"]]$district_hospital_factor) %>% 
         mutate(factor = factor1 * weightages[["weightage09"]]$factor1 + factor2 * weightages[["weightage09"]]$factor2,
-               adjust_factor = ifelse(factor >= 0.85,
+               adjust_factor = ifelse(factor >= 0.9,
                                       0,
-                                      ifelse(factor >= 0.75 & factor < 0.85,
+                                      ifelse(factor >= 0.75 & factor < 0.9,
                                              0.3,
-                                             ifelse(factor >= 0.5 & factor < 0.75,
+                                             ifelse(factor >= 0.6 & factor < 0.75,
                                                     0.6,
-                                                    ifelse(factor < 0.5,
+                                                    ifelse(factor < 0.6,
                                                            1,
                                                            999)))),
                p_offer_attractiveness = sapply(p_sales/potential * 100, function(x) {curve_func("curve09", curves, x)}),
@@ -242,11 +248,12 @@ get_result <- function(input_data, p_data1, p_data4, current_phase, curves, weig
                                              ifelse(oa_factor_base < 0,
                                                     p_offer_attractiveness * (1 + oa_factor_base),
                                                     0)),
-               offer_attractiveness = ifelse(product == "开拓来",
-                                             offer_attractiveness - 5 * adjust_factor,
-                                             ifelse(product == "威芃可" | product == "优派西",
-                                                    offer_attractiveness - 2 * adjust_factor,
-                                                    0)),
+               offer_attractiveness = offer_attractiveness * (1 - 0.3 * adjust_factor),
+               # offer_attractiveness = ifelse(product == "开拓来",
+               #                               offer_attractiveness - 5 * adjust_factor,
+               #                               ifelse(product == "威芃可" | product == "优派西",
+               #                                      offer_attractiveness - 2 * adjust_factor,
+               #                                      0)),
                market_share = ifelse(representative == 0,
                                      0,
                                      sapply(offer_attractiveness, function(x) {curve_func("curve01", curves, x)})),
@@ -280,11 +287,13 @@ get_result <- function(input_data, p_data1, p_data4, current_phase, curves, weig
                                                                    sapply(budget_prop, function(x) {curve_func("curve04", curves, x)}),
                                                                    0))),
                                               0))) %>% 
-        mutate(hospital_quota_potential_factor = ks.test(.$quota/sum(.$quota), .$potential/sum(.$potential), exact = TRUE)$p.value,
+        mutate(hospital_quota_potential_factor = ifelse(sum(quota, na.rm = TRUE) == 0,
+                                                        0,
+                                                        ks.test(.$quota/sum(.$quota), .$potential/sum(.$potential), exact = TRUE)$p.value),
                hospital_quota_potential_factor = ifelse(hospital_quota_potential_factor < 0,
                                                         0,
                                                         hospital_quota_potential_factor),
-               hospital_product_quota_growth_factor = 1 / (abs(quota / potential - sum(quota, na.rm = TRUE) / sum(potential, na.rm = TRUE)) + 1),
+               hospital_product_quota_growth_factor = 1 / (abs(quota / potential - sum(quota) / sum(potential)) + 1),
                factor1 = (hospital_quota_potential_factor * weightages[["weightage06"]]$hospital_quota_potential_factor + 
                             hospital_product_quota_growth_factor * weightages[["weightage06"]]$hospital_product_quota_growth_factor)) %>% 
         group_by(representative) %>% 
@@ -294,20 +303,19 @@ get_result <- function(input_data, p_data1, p_data4, current_phase, curves, weig
                                               0),
                hospital_num_dist = n()) %>% 
         ungroup() %>% 
-        mutate(district_potential_factor = sum(market[[i]]$potential, na.rm = TRUE)/6 / (abs(potential_dist - sum(market[[i]]$potential, na.rm = TRUE)/6) 
-                                                                                         + sum(market[[i]]$potential, na.rm = TRUE)/6),
-               district_hospital_factor = 1 / (abs(hospital_num_dist - 5) + 1),
+        mutate(district_potential_factor = 1 / (abs(rep_num * potential_dist/sum(market[[i]]$potential) - 1) -1),
+               district_hospital_factor = 1 / (abs(rep_num * hospital_num_dist / hosp_num - 1) + 1),
                factor2 = district_potential_factor * weightages[["weightage07"]]$district_potential_factor + 
                  district_cross_factor * weightages[["weightage07"]]$district_cross_factor + 
                  district_hospital_factor * weightages[["weightage07"]]$district_hospital_factor) %>% 
         mutate(factor = factor1 * weightages[["weightage09"]]$factor1 + factor2 * weightages[["weightage09"]]$factor2,
-               adjust_factor = ifelse(factor >= 0.85,
+               adjust_factor = ifelse(factor >= 0.9,
                                       0,
-                                      ifelse(factor >= 0.75 & factor < 0.85,
+                                      ifelse(factor >= 0.75 & factor < 0.9,
                                              0.3,
-                                             ifelse(factor >= 0.5 & factor < 0.75,
+                                             ifelse(factor >= 0.6 & factor < 0.75,
                                                     0.6,
-                                                    ifelse(factor < 0.5,
+                                                    ifelse(factor < 0.6,
                                                            1,
                                                            999)))),
                p_offer_attractiveness = sapply(oa_factor_base, function(x) {runif(1, 3, 7)}),
@@ -316,7 +324,7 @@ get_result <- function(input_data, p_data1, p_data4, current_phase, curves, weig
                                              ifelse(oa_factor_base < 0,
                                                     p_offer_attractiveness * (1 + oa_factor_base),
                                                     0)),
-               offer_attractiveness = offer_attractiveness - 2 * adjust_factor,
+               offer_attractiveness = offer_attractiveness * (1 - 0.3 * adjust_factor),
                market_share = ifelse(representative == 0,
                                      0,
                                      sapply(offer_attractiveness, function(x) {curve_func("curve05", curves, x)})),
@@ -423,18 +431,10 @@ get_report <- function(result, competitor_data) {
   
   competitor_report <- result %>% 
     group_by(product_area) %>% 
-    summarise(potential = sum(potential, na.rm = TRUE),
-              sales = sum(sales, na.rm = TRUE)) %>% 
+    summarise(potential = sum(potential)) %>% 
     ungroup() %>% 
-    mutate(market_share_p = sales / potential) %>% 
     right_join(competitor_data, by = c("product_area")) %>% 
-    mutate(market_share = ifelse(product == "癫痫竞品1",
-                                 (1 - market_share_p) * sample(seq(0.3, 0.5, 0.01), 1),
-                                 ifelse(product == "癫痫竞品2",
-                                        (1 - market_share_p) * sample(seq(0.05, 0.2, 0.01), 1),
-                                        ifelse(product == "帕金森竞品1",
-                                               (1 - market_share_p) * sample(seq(0.45, 0.6, 0.01), 1),
-                                               0))),
+    mutate(market_share = market_share_c * sample(seq(0.9, 1.1, 0.01), 1),
            sales = potential * market_share) %>% 
     select(`product_id`, `market_share`, `sales`)
   
