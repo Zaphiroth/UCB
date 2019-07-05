@@ -87,7 +87,7 @@ preprocess <- function(receive) {
   competitor_data <- do.call(data.frame, dat_json[["body"]][["histories"]][["competitions"]]) %>% 
     rename("product_id" = "product.id",
            "product" = "product.name",
-           "product_area" = "treatment.area",
+           "product_area" = "treatment.name",
            "market_share_c" = "share")
   
   dat <- list("header" = dat_json[["header"]],
