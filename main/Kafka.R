@@ -84,7 +84,7 @@ callRConsumer <- function(consumerName, groupName) {
     # open(con, "rb", blocking = FALSE)
     
     # while(isIncomplete(con)) {
-      # out <- readLines(con, warn = FALSE)
+    # out <- readLines(con, warn = FALSE)
     out <- curl_fetch_memory(url, handle = handle)
     
     if (grep("\"error_code\"", out) == 1) {
