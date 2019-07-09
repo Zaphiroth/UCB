@@ -24,20 +24,9 @@ consumerInstance <- function() {
   tryCatch({
     url <- paste0(uri, "/consumers/", groupName)
     
-    # con <- curl(url, handle = handle)
-    # open(con, "rb", blocking = FALSE)
     out <- curl_fetch_memory(url, handle = handle)
     print("Consumer Instance")
     print(jsonlite::prettify(paste(out, collapse = "")))
-    
-    # while (isIncomplete(con)) {
-    #   out <- readLines(con, warn = FALSE)
-    #   print("Consumer Instance")
-    #   print(jsonlite::prettify(paste(out, collapse = "")))
-    # }
-    
-    # close(con)
-    
   }, error = function(e){
     
     if (conditionMessage(e) == "HTTP error 409.") {
@@ -64,9 +53,6 @@ subscription <- function(groupName, consumerName) {
   data <- jsonlite::toJSON(list(topics = list(options()$receiveTopics)), auto_unbox = TRUE)
   handle_setopt(handle, copypostfields = data);
   
-  # con <- curl(url, handle = handle)
-  # open(con, "rb", blocking = FALSE)
-  # close(con)
   curl_fetch_memory(url, handle = handle)
 }
 
@@ -80,29 +66,19 @@ callRConsumer <- function(consumerName, groupName) {
     handle <- new_handle()
     handle_setheaders(handle, "Accept" = "application/vnd.kafka.json.v2+json")
     
-    # con <- curl(url, handle = handle)
-    # open(con, "rb", blocking = FALSE)
-    
-    # while(isIncomplete(con)) {
-    # out <- readLines(con, warn = FALSE)
-    out <- curl_fetch_memory(url, handle = handle)
-    
-    if (grep("\"error_code\"", out) == 1) {
-      stop(out)
-      
-    } else {
-      receive <- paste(out, collapse = "")
-      calculation(receive)
+    response <- curl_fetch_memory(url, handle = handle)
+    out <- rawToChar(response$content) 
+    print(out)
+    if (out != "[]") {
+        if (grep("\"error_code\"", out) == 1) {
+          stop(out)
+        } else {
+          receive <- paste(out, collapse = "")
+          calculation(receive)
+        }
     }
-    # }
-    
-    # close(con)
-    
   }, error = function(e) {
-    
-    # if (conditionMessage(e) == "HTTP error 404.") {
-    if (grep("\"error_code\":404", out) == 1) {
-      
+    if (grep("\"error_code\":404", conditionMessage(e)) == 1) {
       res <- consumerInstance() # 获取Consumer实例
       subscription(res$groupName, res$consumerName) # 订阅
       listening(callRConsumer, res$consumerName, res$groupName) # 重新监听
@@ -120,8 +96,6 @@ sendResultMessage <- function(uri, topic, body) {
   handle_setopt(handle, copypostfields = body);
   
   url <- paste0(uri, "/" ,topic)
-  # con <- curl(url, handle = handle)
-  # open(con, "rb", blocking = FALSE)
   curl_fetch_memory(url, handle = handle)
 }
 
